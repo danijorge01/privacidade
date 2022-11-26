@@ -53,7 +53,7 @@ public class Cifra {
     KeyStore kstore = KeyStore.getInstance("JKS");//PKCS12
     if ((new File("keystore.server")).exists()){  // **** file da keystore
 		FileInputStream kfile1 = new FileInputStream("keystore.server"); 
-		kstore.load(kfile1, "ninis".toCharArray()); // **** password da keystore
+		kstore.load(kfile1, "ninis1234".toCharArray()); // **** password da keystore 
 		kfile1.close();
     } else {
 		kstore.load(null, null); // **** caso em que o file da keystore ainda nao existe
@@ -62,10 +62,10 @@ public class Cifra {
 	Certificate chain [] = {certificate, certificate};
 	
 	
-	// **** atencao ao alias do user e 'a password da chave privada
-	kstore.setKeyEntry(id, (Key)keyPair.getPrivate(), password.toCharArray(), chain);
+	// **** atencao ao alias do user e 'a password da chave privada //password.toCharArray()
+	kstore.setKeyEntry(id, (Key)keyPair.getPrivate(), "ninis1234".toCharArray(), chain);
 	FileOutputStream kfile = new FileOutputStream("keystore.server"); // keystore
-	kstore.store(kfile, "ninis".toCharArray());
+	kstore.store(kfile, "ninis1234".toCharArray());
 			
   }
 }

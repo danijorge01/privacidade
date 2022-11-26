@@ -6,8 +6,8 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si/jars/bcpkix-jdk18on-171.jar"/>
-	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si/jars/bcprov-jdk18on-171.jar"/>
-	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si/jars/bcutil-jdk18on-171.jar"/>
+	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si_final/jars/bcpkix-jdk18on-171.jar"/>
+	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si_final/jars/bcprov-jdk18on-171.jar"/>
+	<classpathentry kind="lib" path="/home/cata/fcul/SI/projeto repo/si_final/jars/bcutil-jdk18on-171.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
