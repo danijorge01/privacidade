@@ -41,7 +41,7 @@ public class myAutentClient {
     public static void main(String[] args) throws Exception, IOException {
         int userId = Integer.parseInt(args[1]);
 		String password = args[2];
-        // String[] serverAddress = args[3].split(":");
+        String nameReceiver = args[3];
         String address = "localhost";
         int port = 23456;
 
@@ -54,64 +54,15 @@ public class myAutentClient {
 		ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
 		ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
 
-		sendFileMessage(userId, password, inStream, outStream, sf);
-		
-		// if(args.length <= 4) {
-		// 	System.out.println("Not enough arguments");
-		// 	outStream.writeObject("notenough");
-		// } else {
-	    //     String password;
-	    //     int a = 4;
-	    //     if(args.length > 4 && args[4].equals("-p"))  {
-	    //         password = args[5];
-	    //         a = 6;
-	        // } else {
-	            // Scanner obj = new Scanner(System.in);
-	            // System.out.println("Enter a password: ");
-	            // password = obj.nextLine();
-	            // obj.close();
-	        // }
-	        // if(args[a].equals("-c") && userId == 1){ //SEND DATA FOR NEW USER
-	        //     outStream.writeObject("c");
-	        //     outStream.writeObject(userId); //id admin
-	        //     outStream.writeObject(password); //password admin
-	        //     outStream.writeObject(args[a+1]); //id of the new user
-	        //     outStream.writeObject(args[a+2]); //name of the new user
-	        //     outStream.writeObject(args[a+3]); //password of the new user
-	            
-	        //     Boolean resp = (Boolean) inStream.readObject();
-	        //     if(resp) {
-	        //     	System.out.println("User named " + args[a+2] + " with id " + args[a+1] + " was successfully created");
-			// 		File dir_user = new File("./client/" + args[a+1]);
-			// 		if(!(dir_user.isDirectory())){ 
-			// 			new File("./client/" + args[a+1]).mkdirs(); 
-			// 			System.out.println("New directory was created for user " + args[a+1] + " in '/client'");
-			// 		}
-	        //     } else {
-	        //     	System.out.println("User " + args[a+2] + " with id " + args[a+1] + " already exists"); 
-	        //     }
-	        // }
-	        // else if(args[a].equals("-l")){ //LIST
-	        //     outStream.writeObject("l");
-	        //     outStream.writeObject(userId);
-	        //     outStream.writeObject(password);
-	            
-	        //     int numfiles = (int) inStream.readObject();
-	        //     if(numfiles == 0){
-			// 		System.out.println("user doesn't have files");
-			// 	}
-	        //     else{
-	        //         List<String> file_list = (List<String>) inStream.readObject(); //recebe lista 
-	        //         for(int i = 0; i < file_list.size(); i++) {
-	        //             System.out.println(file_list.get(i));
-	        //         }
-	        //     }
-	        // }
+		String fileName = "aaa";
+		// check if the client wants to send messages
+		sendFileMessage(userId, password, nameReceiver, inStream, outStream, sf);
+		// see if there's new messages to receive
+		//recievesFile(userId, password, fileName, inStream2, outStream2, temp);
 	}
-
-
-			private static void sendFileMessage(int userId, String password, ObjectInputStream inStream, ObjectOutputStream outStream, SocketFactory sf){ //SEND FILES
-	            // outStream.writeObject("e");
+			private static void sendFileMessage(int userId, String password, String nameReceiver, ObjectInputStream inStream, ObjectOutputStream outStream, SocketFactory sf){ //SEND FILES
+	            
+				// connection between client and server
 
 				File kfile = new File("keystore." + userId);  //keystore
 				if(!kfile.isFile()) { 
@@ -125,22 +76,46 @@ public class myAutentClient {
 
 				Map<String, Socket> availableClients = (HashMap<String, Socket>) inStream.readObject(); // names and addresses of clients
 				
+				Socket clientSocket;
 				// choose a client to chat
-				Socket clientSocket = availableClients.get("Katrina");
+				if(availableClients.get(nameReceiver) != null) {
+					clientSocket = availableClients.get(nameReceiver);
+				} else {
+					System.out.println("This user doesn't exist.");
+				}
 				Socket newSocket = sf.createSocket(clientSocket.getInetAddress(), clientSocket.getPort());
 
 				ObjectInputStream inStream2 = new ObjectInputStream(newSocket.getInputStream());
 				ObjectOutputStream outStream2 = new ObjectOutputStream(newSocket.getOutputStream());
 
-				Scanner myObj = new Scanner(System.in);  // Create a Scanner object
+				// the clients send their public keys
+				PublicKey pubk_receiver = (PublicKey) inStream2.readObject();
+				Certificate c = (Certificate) kstore.getCertificate(String.valueOf(userId)); 
+				PublicKey pubk = c.getPublicKey();
+				outStream2.writeObject(pubk); //sends public key to receiver
+
+				Scanner myObj = new Scanner(System.in);
     			System.out.println("Enter message: ");
 				String message = myObj.nextLine();
 
-				Key myPrivateKey = kstore.getKey(String.valueOf(userId), password.toCharArray()); 
+				// Create Hash of the message
+
+				PBEKeySpec keySpec = new PBEKeySpec(password.toCharArray());
+				SecretKeyFactory kf = SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_128");
+				SecretKey key_Mac = kf.generateSecret(keySpec);
+
+				Mac mac = Mac.getInstance("HmacSHA256");
+				mac.init(key_Mac);
+
+				//BufferedOutputStream oos = new BufferedOutputStream(new FileOutputStream("message_hash.txt"));
+				byte buf[] = message.getBytes();
+				mac.update(buf);
+				outStream2.writeObject(mac.doFinal());
+				//oos.close();
 
 				//Gerar chave de sessão p/ comunicação com determinado(s) cliente(s) 
 
-				//GET RADOM AES KEY
+				//GET RANDOM AES KEY
 				KeyGenerator kg = KeyGenerator.getInstance("AES"); //generate random key for AES
 				kg.init(128);
 				SecretKey key = kg.generateKey();
@@ -161,149 +136,103 @@ public class myAutentClient {
 				newServerFileCOS.close();
 				kfilein.close();
 
-				// Encrypt the AES key with the public key of the receiver
+				// Encrypt the AES key with the public key of the receiver 
 
-				// Get public key
+				// PERGUNTAR AO PROFESSORR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				
+				Cipher cRSA = Cipher.getInstance("RSA");
+				cRSA.init(Cipher.WRAP_MODE, pubk_receiver);
+				byte[] wrappedKey = cRSA.wrap(key);
+				outStream2.writeObject(wrappedKey);
 
-				Certificate c = (Certificate) kstore.getCertificate(String.valueOf(userId)); 
-				PublicKey pubk = c.getPublicKey();
-					
-				outStream2.writeObject(pubk); //sends public key to receiver
+				//order of stuff received: list of available clients, public key of receiver
+				//order of stuff sent: public key, hashed file, cipher file, wrapped AES key (shared key)
 
 	        }
 
+			private void receivesFile(String userId, String password, String fileName, ObjectInputStream inStream2, ObjectOutputStream outStream2, int temp) throws IOException, Exception {
+ 				
+				File kfile = new File("keystore." + userId);  //keystore
+				if(!kfile.isFile()) { 
+					Cifra.main(String.valueOf(userId), password);					
+				} 
 
-	//         public void sendFileMessage(){ //RECIEVES FILES
-	//             outStream.writeObject("d");
-	//             outStream.writeObject(userId);
-	//             outStream.writeObject(password);
-	//             outStream.writeObject(args.length - a - 1); //number of files
-	            
-	// 			for(int f = a + 1; f < args.length; f++) {
-					
-	// 				File fileExistsInClient = new File("./client/" + userId + "/" + args[f] + "_signed." + String.valueOf(userId));
-	// 				if(!fileExistsInClient.isFile()) { 
-	// 					outStream.writeObject(args[f]); //file name
-	// 					outStream.writeObject(false); //file doens't exist in client
-					
-	// 					Boolean fileExistsInServer = (Boolean) inStream.readObject(); //file exists in server
-	// 					if(fileExistsInServer) {
-	// 						int temp = (int) inStream.readObject();
-							
-	// 						receivesFile(String.valueOf(userId), args[f] + "_signed." + userId, inStream, temp);
-	// 					}else {
-	// 						System.out.println("The file: " + args[f] +  " doesn't exist in server");
-	// 					}
-	// 				}else {
-	// 					outStream.writeObject(true); //file already exist in client
-	// 					System.out.println("The file: " + args[f]+ "_signed." + String.valueOf(userId) + " already exist in client: can't overwrite");
-	// 				}
-	// 			}
-	//         }if(args[a].equals("-s")){ //HASH FILES
-	// 			outStream.writeObject("s");
-	//             outStream.writeObject(userId);
-	//             outStream.writeObject(password);
+				FileInputStream kfilein = new FileInputStream("keystore." + userId);  //keystore
+				KeyStore kstore = KeyStore.getInstance("JKS");
+				kstore.load(kfilein, password.toCharArray());
 
-	// 			PBEKeySpec keySpec = new PBEKeySpec(password.toCharArray( ));
-	// 			SecretKeyFactory kf = SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_128");
-	// 			SecretKey key = kf.generateSecret(keySpec);
-	// 			Mac mac = Mac.getInstance("HmacSHA256");
-	// 			mac.init(key);
+				Certificate c = (Certificate) kstore.getCertificate(String.valueOf(userId)); 
+				PublicKey pubk = c.getPublicKey();
+				outStream2.writeObject(pubk); //sends public key to sender
 
-	// 			outStream.writeObject(args.length - a - 1); //number of files
-	// 			for(int f = a + 1; f < args.length; f++){
-					
-	// 				File fileClient = new File("./client/" + userId + "/" + args[f]);
-	// 				File recieved = new File("./client/" + userId + "/" + args[f] + "_hash_signed." + userId);
-	//                 if(fileClient.isFile() && !recieved.isFile()) {
-	// 					outStream.writeObject((Boolean)true); //file exists
-						
-	// 					//Hash file from client and sends to server
-	// 					BufferedInputStream fileBIS = new BufferedInputStream(new FileInputStream("./client/" + userId + "/" + args[f]));
-	// 		            byte[] array = new byte[1024];
-	// 		            int x = 0;
-	// 		            while((x = fileBIS.read(array, 0, 1024)) > 0) {
-	// 						mac.update(array, 0, x);
-	// 		            }
-	// 		            byte[] hash = mac.doFinal();
-	// 		            outStream.writeObject(hash.length);
-	// 		            outStream.write(hash);
-	// 		            System.out.println("hashMac -s: " + new String(hash));
-	// 		            outStream.flush();
-	// 					fileBIS.close();
-						
-	// 					//recieves signed hash
-	// 					BufferedOutputStream fileBOS = new BufferedOutputStream(new FileOutputStream("./client/" + userId + "/" + args[f] + "_hash_signed." + userId));
-	// 					fileBOS.write((byte[]) inStream.readObject());
-	// 					fileBOS.close();
+				PublicKey pubk_sender = (PublicKey) inStream2.readObject();
 
-	// 				}else{
-	// 					outStream.writeObject((Boolean)false); //file doesn't exist
-	// 					outStream.writeObject(args[f]); 
-	// 					System.out.println("The file: " + args[f] + " doesn't exist");
-	// 				}
-	// 			}
-	// 		}else if(args[a].equals("-v")){ 
-	// 			outStream.writeObject("v");
-	//             outStream.writeObject(userId);
-	//             outStream.writeObject(password);
-	
-	// 			PBEKeySpec keySpec = new PBEKeySpec(password.toCharArray());
-	// 			SecretKeyFactory kf = SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_128");
-	// 			SecretKey key = kf.generateSecret(keySpec);
-	
-	// 			outStream.writeObject(args.length - a - 1); //number of files
-	// 			for(int f = a + 1; f < args.length; f++){
-	// 				Mac mac = Mac.getInstance("HmacSHA256");
-	// 				mac.init(key);
-	
-	// 				File fileClient = new File("./client/" + userId + "/" + args[f]);
-	//                 if(fileClient.isFile()) {
-	// 					outStream.writeObject((Boolean)true); //file exists
-	//                 	String fileName = fileClient.getName();
-	
-	// 					//Hash file from client
-	// 					BufferedInputStream fileBIS = new BufferedInputStream(new FileInputStream("./client/" + userId + "/" + fileName));
-	// 		            byte[] array = new byte[1024];
-	// 		            int x = 0;
-	// 		            while((x = fileBIS.read(array, 0, 1024)) > 0) {
-	// 						mac.update(array, 0, x);
-	// 		            }
-	// 		            byte[] hashMac = mac.doFinal();
-	// 		            fileBIS.close();
-	// 		            outStream.writeObject(hashMac);
-			            
-	// 					//Sends signature to server
-	// 					BufferedInputStream fileSignedBIS = new BufferedInputStream(new FileInputStream("./client/" + userId + "/" + fileName + "_hash_signed." + userId));
+				// old mac
+				byte[] array3 = (byte[]) inStream2.readObject();
 
-	// 					byte[] signature = new byte[256]; //read signature
-	// 					fileSignedBIS.read(signature);
-						
-	// 					outStream.writeObject(signature);
-	// 					outStream.flush();
-	// 					fileSignedBIS.close();
-						
-	// 					System.out.println((String)inStream.readObject());
-	//                 }	 
-	// 			}
-	// 		}else {
-	//         	socket.close();
-	//         	throw new Exception("user != 1 can't create other users");
-	// 		}
-    //     outStream.close();
-	// 	inStream.close();
-	// 	socket.close();
-	// }
-		// public void receivesFile(String id, String fileName, ObjectInputStream inStream, int temp) throws IOException, Exception {
-		// 		BufferedOutputStream fileBOS = new BufferedOutputStream(new FileOutputStream("./client/" + id + "/" + fileName));
-		// 		int x = 0;
-		// 		byte[] array = new byte[1024];
-		// 		while(temp > 0) {
-		// 			x = inStream.read(array, 0, temp > 1024 ? 1024 : temp);
-		// 			fileBOS.write(array, 0, x);
-		// 			temp -= x;	
-		// 		}
-		// 		fileBOS.close();
-		// }
+				//Recieves the file
+				
+				BufferedOutputStream fileBOS = new BufferedOutputStream(new FileOutputStream("./client/" + userId + "/" + fileName + ".cif"));
+ 				int x = 0;
+ 				byte[] array = new byte[1024];
+ 				while(temp > 0) {
+ 					x = inStream2.read(array, 0, temp > 1024 ? 1024 : temp);
+ 					fileBOS.write(array, 0, x);
+ 					temp -= x;	
+				}
+ 				fileBOS.close();
+
+				// Decrypt the file
+
+				//READ WRAPPED KEY
+				byte[] keyEncoded = (byte[]) inStream2.readObject();
+
+				//GET PRIVATE KEY
+				Key myPrivateKey = kstore.getKey(String.valueOf(userId), password.toCharArray()); 
+
+				//GET RANDOM AES KEY CREATED IN CIPHER
+				Cipher cRSA = Cipher.getInstance("RSA");
+				cRSA.init(Cipher.UNWRAP_MODE, myPrivateKey); 
+				Key keyAES = cRSA.unwrap(keyEncoded, "AES", Cipher.SECRET_KEY);
+
+				//DECRYPT CIPHER
+				Cipher cAES = Cipher.getInstance("AES");
+	   			cAES.init(Cipher.DECRYPT_MODE, keyAES);
+
+				//DECRYPT FILE WITH AES KEY
+				FileInputStream fileFIS = new FileInputStream("./user_directories/data/" + userId + "/" + fileName + ".cif");
+				CipherOutputStream fileCOS = new CipherOutputStream(outStream2, cAES);
+				byte[] array2 = new byte[1024];
+				//outStream2.writeObject(temp); //sends file size
+				int x1 = 0;
+				while((x1 = fileFIS.read(array2, 0, 1024)) > 0) {
+					fileCOS.write(array2, 0, x1);
+					fileCOS.flush();
+				}
+				System.out.println("Message: " + fileName +  " sent to client of id: " + userId);
+				fileFIS.close();
+				fileCOS.close();
+				
+				// Hash para testar a integridade
+
+				PBEKeySpec keySpec = new PBEKeySpec(password.toCharArray());
+				SecretKeyFactory kf = SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_128");
+				SecretKey key = kf.generateSecret(keySpec);
+
+				// new mac
+				Mac mac = Mac.getInstance("HmacSHA256");
+				mac.init(key);
+				mac.update(array2);
+				byte[] arrayFinal = mac.doFinal();
+
+				String new_mac = new String(array2);
+				String old_mac = new String(array3);
+				if(old_mac.equals(new_mac)) {
+					System.out.println("MAC of message is correct");
+				} else{
+					throw new Exception("MAC of the message is invalid");
+				}
+
+ 			}
 
 }

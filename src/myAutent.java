@@ -218,7 +218,7 @@ public class myAutent {
 			
 		}
 
-}
+	}
 			/** Closes the given socket, ignoring (but printing) any exception. */
 			// private void closeSocket(Socket socket) {
 			// 	try {
